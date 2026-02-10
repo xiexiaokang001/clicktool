@@ -15,12 +15,13 @@ from src.clicker import Clicker
 class ClickToolGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("ClickTool")
-        self.root.geometry("600x500")
+        self.root.title("ClickTool - Auto Click Tool")
+        self.root.geometry("600x520")
         self.root.resizable(True, True)
 
         self.is_running = False
         self.stop_event = threading.Event()
+        self.was_minimized = False
 
         self.setup_ui()
 
@@ -28,7 +29,7 @@ class ClickToolGUI:
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
 
-        target_frame = ttk.LabelFrame(main_frame, text="Target Settings", padding="10")
+        target_frame = ttk.LabelFrame(main_frame, text=" Target Settings ", padding="10")
         target_frame.pack(fill=tk.X, pady=5)
 
         ttk.Label(target_frame, text="Target text (comma separated):").grid(row=0, column=0, sticky=tk.W, pady=5)
@@ -45,7 +46,7 @@ class ClickToolGUI:
         self.interval.set(2.0)
         self.interval.grid(row=1, column=2, sticky=tk.W, pady=5, padx=5)
 
-        config_frame = ttk.LabelFrame(main_frame, text="Config", padding="10")
+        config_frame = ttk.LabelFrame(main_frame, text=" Config ", padding="10")
         config_frame.pack(fill=tk.X, pady=5)
 
         ttk.Label(config_frame, text="Config file:").grid(row=0, column=0, sticky=tk.W, pady=5)
@@ -53,7 +54,7 @@ class ClickToolGUI:
         self.config_path.insert(0, "config.yaml")
         self.config_path.grid(row=0, column=1, pady=5, padx=5)
 
-        ttk.Label(config_frame, text="Confidence:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        ttk.Label(config_frame, text="Confidence (0.1-1.0):").grid(row=1, column=0, sticky=tk.W, pady=5)
         self.confidence = ttk.Spinbox(config_frame, from_=0.1, to=1.0, width=10)
         self.confidence.set(0.8)
         self.confidence.grid(row=1, column=1, sticky=tk.W, pady=5, padx=5)
@@ -61,24 +62,27 @@ class ClickToolGUI:
         button_frame = ttk.Frame(main_frame, padding="10")
         button_frame.pack(fill=tk.X, pady=10)
 
-        self.start_btn = ttk.Button(button_frame, text="Start", command=self.start_task)
+        self.start_btn = ttk.Button(button_frame, text="Start", command=self.start_task, width=15)
         self.start_btn.pack(side=tk.LEFT, padx=5)
 
-        self.stop_btn = ttk.Button(button_frame, text="Stop", command=self.stop_task, state=tk.DISABLED)
+        self.stop_btn = ttk.Button(button_frame, text="Stop", command=self.stop_task, state=tk.DISABLED, width=15)
         self.stop_btn.pack(side=tk.LEFT, padx=5)
 
-        self.clear_btn = ttk.Button(button_frame, text="Clear Log", command=self.clear_log)
+        self.clear_btn = ttk.Button(button_frame, text="Clear Log", command=self.clear_log, width=15)
         self.clear_btn.pack(side=tk.RIGHT, padx=5)
 
-        log_frame = ttk.LabelFrame(main_frame, text="Log", padding="10")
+        log_frame = ttk.LabelFrame(main_frame, text=" Log ", padding="10")
         log_frame.pack(fill=tk.BOTH, expand=True, pady=5)
 
         self.log_text = scrolledtext.ScrolledText(log_frame, height=15, wrap=tk.WORD)
         self.log_text.pack(fill=tk.BOTH, expand=True)
 
-        self.status_var = tk.StringVar(value="Ready")
+        self.status_var = tk.StringVar(value="Ready - Enter target text and click Start")
         status_bar = ttk.Label(self.root, textvariable=self.status_var, relief=tk.SUNKEN)
         status_bar.pack(fill=tk.X, side=tk.BOTTOM)
+
+        self.minimize_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(button_frame, text="Minimize while running", variable=self.minimize_var).pack(side=tk.LEFT, padx=20)
 
     def log(self, message):
         self.root.after(0, self._log, message)
@@ -99,6 +103,14 @@ class ClickToolGUI:
         config.config['ocr'] = config.config.get('ocr', {})
         config.config['ocr']['confidence'] = float(self.confidence.get())
         return config
+
+    def minimize_window(self):
+        self.was_minimized = self.root.state() == 'normal'
+        self.root.iconify()
+
+    def restore_window(self):
+        self.root.deiconify()
+        self.root.lift()
 
     def run_click_task(self, target_text, config):
         ocr = ScreenOCR(config)
@@ -136,6 +148,9 @@ class ClickToolGUI:
         self.stop_btn.config(state=tk.NORMAL)
         self.target_entry.config(state=tk.DISABLED)
 
+        if self.minimize_var.get():
+            self.minimize_window()
+
         def task_thread():
             try:
                 config = self.get_config()
@@ -164,14 +179,14 @@ class ClickToolGUI:
 
                 if self.is_running:
                     self.log("All tasks completed!")
-                    self.update_status("Completed")
+                    self.update_status("Completed - Click Start to run again")
                 else:
-                    self.log("Task stopped")
-                    self.update_status("Stopped")
+                    self.log("Task stopped by user")
+                    self.update_status("Stopped - Click Start to run again")
 
             except Exception as e:
                 self.log(f"Error: {str(e)}")
-                self.update_status("Error")
+                self.update_status("Error occurred")
             finally:
                 self.is_running = False
                 self.root.after(0, self.finish_task)
@@ -188,6 +203,7 @@ class ClickToolGUI:
         self.start_btn.config(state=tk.NORMAL)
         self.stop_btn.config(state=tk.DISABLED)
         self.target_entry.config(state=tk.NORMAL)
+        self.restore_window()
 
 
 def main():
