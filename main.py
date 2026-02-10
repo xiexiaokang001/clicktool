@@ -63,8 +63,14 @@ def run_quantity_task(config: Config, target_text: str, logger):
 def main():
     parser = argparse.ArgumentParser(description='屏幕文字识别自动点击工具')
     parser.add_argument('-t', '--text', type=str, help='要识别和点击的目标文字')
+    parser.add_argument('-s', '--sequence', type=str,
+                        help='多个目标序列，用逗号分隔，如: 帮助,关于')
     parser.add_argument('-c', '--config', type=str, default='config.yaml',
                         help='配置文件路径')
+    parser.add_argument('-n', '--number', type=int, default=1,
+                        help='点击次数，默认1次')
+    parser.add_argument('-i', '--interval', type=float, default=2.0,
+                        help='每次点击之间的间隔（秒），默认2秒')
     parser.add_argument('--quantity', action='store_true',
                         help='启用定量点击模式')
     parser.add_argument('--schedule', action='store_true',
@@ -84,9 +90,9 @@ def main():
         print(all_text)
         return
 
-    if not args.text:
+    if not args.text and not args.sequence:
         parser.print_help()
-        print("\n请使用 -t 参数指定要点击的文字")
+        print("\n请使用 -t 参数指定要点击的文字，或使用 -s 参数指定多个目标")
         return
 
     if args.quantity:
@@ -94,8 +100,24 @@ def main():
     elif args.schedule:
         scheduler = TaskScheduler(config)
         scheduler.start(run_click_task, config, args.text, logger)
+    elif args.sequence:
+        targets = [t.strip() for t in args.sequence.split(',')]
+        logger.info(f"开始序列点击任务，目标: {targets}")
+        for i, target in enumerate(targets):
+            for j in range(args.number):
+                if i > 0 or j > 0:
+                    logger.info(f"等待 {args.interval} 秒...")
+                    time.sleep(args.interval)
+                run_click_task(config, target, logger)
+            logger.info(f"完成目标 {i+1}/{len(targets)}: {target}")
+        logger.info("所有任务完成")
     else:
-        run_click_task(config, args.text, logger)
+        for i in range(args.number):
+            if i > 0:
+                logger.info(f"等待 {args.interval} 秒后进行第 {i+1} 次点击...")
+                time.sleep(args.interval)
+            run_click_task(config, args.text, logger)
+        logger.info(f"任务完成，共点击 {args.number} 次")
 
 
 if __name__ == '__main__':
