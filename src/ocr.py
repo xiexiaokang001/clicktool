@@ -4,6 +4,9 @@ from typing import List, Tuple, Optional
 import mss
 import mss.tools
 import io
+import os
+
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 
 class ScreenOCR:
