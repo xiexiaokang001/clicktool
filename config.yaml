@@ -1,0 +1,51 @@
+# ClickTool 配置文件
+# 屏幕文字识别自动点击工具
+
+# OCR 配置
+ocr:
+  # 置信度阈值 (0-1)
+  confidence: 0.8
+  # 识别的语言 (chi_sim=简体中文, eng=英文)
+  language: chi_sim
+  # 搜索区域 (x, y, width, height)，设为 null 则全屏搜索
+  region: null
+
+# 点击配置
+click:
+  # 点击类型: single(单击), double(双击), right(右键)
+  click_type: single
+  # 点击间隔 (秒)
+  interval: 1.0
+  # 点击偏移量 (像素)，用于微调点击位置
+  offset_x: 0
+  offset_y: 0
+
+# 任务配置
+task:
+  # 启用定时任务
+  enable_schedule: false
+  # 定时执行的cron表达式 (分钟 小时 日期 月份 星期)
+  # 例如: "*/5 * * * *" 每5分钟执行一次
+  cron: "*/5 * * * *"
+  # 定时任务的开始时间 (格式: HH:MM)
+  start_time: "09:00"
+  # 定时任务的结束时间 (格式: HH:MM)
+  end_time: "18:00"
+
+# 定量任务配置
+quantity:
+  # 启用定量点击
+  enable_quantity: false
+  # 总点击次数
+  total_clicks: 100
+  # 每轮点击次数
+  clicks_per_round: 10
+  # 每轮之间的时间间隔 (秒)
+  round_interval: 5.0
+
+# 日志配置
+logging:
+  # 日志级别: DEBUG, INFO, WARNING, ERROR
+  level: INFO
+  # 是否保存日志到文件
+  save_to_file: true
