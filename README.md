@@ -1,3 +1,0 @@
-# clicktool
-
-A tool project.
