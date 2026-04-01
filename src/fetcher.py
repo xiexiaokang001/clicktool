@@ -1,51 +1,65 @@
 """
-参考图下载模块
+心法图标下载模块
 自动从网络下载剑网三所有心法图标
+数据来源: https://github.com/JX3BOX/jx3box-data
+图标CDN: https://icon.jx3box.com/icon/{id}.png
 """
-import requests
+import urllib.request
 from pathlib import Path
-from typing import Optional
 import time
+import json
+import urllib.parse
 
-# 剑网三全部心法列表（按门派分类）
-# 格式：(心法英文名, 心法中文名, 可能的资源URL模式)
-JIX3_MANTRAS = [
-    # 门派
-    ("qixiu", "花间游", "https://jx3.61.com/wp-content/uploads/icon/qixiu.png"),
-    ("cangjian", "太虚剑意", "https://jx3.61.com/wp-content/uploads/icon/cangjian.png"),
-    ("tiandou", "天宗剑意", "https://jx3.61.com/wp-content/uploads/icon/tiandou.png"),
-    ("tianlu", "天罗诛心", "https://jx3.61.com/wp-content/uploads/icon/tianlu.png"),
-    ("penglai", "蓬莱", "https://jx3.61.com/wp-content/uploads/icon/penglai.png"),
-    ("changling", "长留", "https://jx3.61.com/wp-content/uploads/icon/changling.png"),
-    ("xingyun", "星运", "https://jx3.61.com/wp-content/uploads/icon/xingyun.png"),
-    ("badao", "傲血战意", "https://jx3.61.com/wp-content/uploads/icon/badao.png"),
-    ("lingxu", "铁骨衣", "https://jx3.61.com/wp-content/uploads/icon/lingxu.png"),
-    ("zhenwu", "分山劲", "https://jx3.61.com/wp-content/uploads/icon/zhenwu.png"),
-    ("cuiyao", "山居剑意", "https://jx3.61.com/wp-content/uploads/icon/cuiyao.png"),
-    ("mingdao", "明教", "https://jx3.61.com/wp-content/uploads/icon/mingdao.png"),
-    ("wudu", "焚魔", "https://jx3.61.com/wp-content/uploads/icon/wudu.png"),
-    ("tianchi", "冰心诀", "https://jx3.61.com/wp-content/uploads/icon/tianchi.png"),
-    ("xueyue", "云裳", "https://jx3.61.com/wp-content/uploads/icon/xueyue.png"),
-    ("shaolin", "易筋经", "https://jx3.61.com/wp-content/uploads/icon/shaolin.png"),
-    ("shaolin_jy", "洗髓经", "https://jx3.61.com/wp-content/uploads/icon/shaolin_jy.png"),
-    ("wanneng", "通用", "https://jx3.61.com/wp-content/uploads/icon/wanneng.png"),
-]
+# 剑网三全部心法列表（IconID -> 中文名）
+# 数据来源: https://github.com/JX3BOX/jx3box-data/blob/master/data/xf/xf.json
+# 仅保留正式服(std)心法，排除通用和怀旧服专属
+JIX3_MANTRAS = {
+    10026: "傲血战意",
+    10062: "铁牢律",
+    10021: "花间游",
+    10028: "离经易道",
+    10014: "紫霞功",
+    10015: "太虚剑意",
+    10081: "冰心诀",
+    10080: "云裳心经",
+    10003: "易筋经",
+    10002: "洗髓经",
+    10144: "问水诀",
+    10145: "山居剑意",
+    10268: "笑尘诀",
+    10242: "焚影圣诀",
+    10243: "明尊琉璃体",
+    10175: "毒经",
+    10176: "补天诀",
+    10224: "惊羽诀",
+    10225: "天罗诡道",
+    10389: "铁骨衣",
+    10390: "分山劲",
+    10447: "莫问",
+    10448: "相知",
+    10464: "北傲诀",
+    10533: "凌海诀",
+    10585: "隐龙诀",
+    10615: "太玄经",
+    10626: "灵素",
+    10627: "无方",
+    10698: "孤锋诀",
+    10756: "山海心诀",
+    10786: "周天功",
+    10821: "幽罗引",
+}
 
-# 备用资源站（FanSite sources）
-FAN_SITES = [
-    "https://raw.githubusercontent.com/JX3BOX/icon/main/move/{}.png",
-    "https://raw.githubusercontent.com/JX3BOX/icon/main/class/{}.png",
-]
+# 图标CDN地址
+ICON_CDN = "https://icon.jx3box.com/icon"
 
 
 class IconFetcher:
     def __init__(self, assets_dir: Path):
         self.assets_dir = Path(assets_dir)
         self.assets_dir.mkdir(parents=True, exist_ok=True)
-        self.session = requests.Session()
-        self.session.headers.update({
+        self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        })
+        }
 
     def download_all(self, progress_callback=None) -> dict[str, bool]:
         """
@@ -53,36 +67,41 @@ class IconFetcher:
         返回：{心法名: 是否成功}
         """
         results = {}
+        items = list(JIX3_MANTRAS.items())
         
-        for i, (ename, cname, url) in enumerate(JIX3_MANTRAS):
-            local_path = self.assets_dir / f"{ename}.png"
+        for i, (icon_id, cname) in enumerate(items):
+            local_path = self.assets_dir / f"{cname}.png"
             
-            if local_path.exists():
+            if local_path.exists() and local_path.stat().st_size > 100:
                 results[cname] = True
+                if progress_callback:
+                    progress_callback(i + 1, len(items), cname)
                 continue
             
-            success = self._download_single(ename, url)
+            success = self._download_single(icon_id, cname)
             results[cname] = success
             
             if progress_callback:
-                progress_callback(i + 1, len(JIX3_MANTRAS), cname)
+                progress_callback(i + 1, len(items), cname)
             
-            time.sleep(0.3)  # 避免请求过快
+            time.sleep(0.2)  # 避免请求过快
         
         return results
 
-    def _download_single(self, ename: str, url: str) -> bool:
-        """尝试从主URL下载，失败则尝试备用资源站"""
-        local_path = self.assets_dir / f"{ename}.png"
+    def _download_single(self, icon_id: int, cname: str) -> bool:
+        """从 icon.jx3box.com 下载单个图标"""
+        local_path = self.assets_dir / f"{cname}.png"
+        url = f"{ICON_CDN}/{icon_id}.png"
         
-        for attempt_url in [url] + [site.format(ename) for site in FAN_SITES]:
-            try:
-                resp = self.session.get(attempt_url, timeout=10)
-                if resp.status_code == 200 and len(resp.content) > 1000:
-                    local_path.write_bytes(resp.content)
+        try:
+            req = urllib.request.Request(url, headers=self.headers)
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = resp.read()
+                if len(data) > 100:
+                    local_path.write_bytes(data)
                     return True
-            except Exception:
-                continue
+        except Exception:
+            pass
         return False
 
     def get_local_count(self) -> int:
@@ -91,4 +110,6 @@ class IconFetcher:
 
     def is_complete(self) -> bool:
         """检查是否已下载所有图标"""
-        return self.get_local_count() >= len(JIX3_MANTRAS)
+        count = self.get_local_count()
+        # 允许少量误差（可能有重名或缺失）
+        return count >= len(JIX3_MANTRAS) * 0.9
