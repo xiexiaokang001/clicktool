@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
-"""下载剑网三心法图标（纯英文文件名，兼容 Windows）"""
+"""
+剑网三心法图标下载器
+下载所有心法图标到 assets/ 目录（英文文件名，兼容 Windows/Linux）
+同时生成 name_map.json 英中名称映射文件
+"""
 import urllib.request
+import json
 import os
 from pathlib import Path
 
@@ -43,25 +48,28 @@ MANTRAS = {
 
 ICON_CDN = "https://icon.jx3box.com/icon"
 
+
 def download():
     assets = Path("assets")
     assets.mkdir(exist_ok=True)
-    
-    headers = {"User-Agent": "Mozilla/5.0"}
+
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     success = 0
-    
+    name_map = {}  # 英文名 -> 中文名
+
     for icon_id, (ename, cname) in MANTRAS.items():
         filename = f"{ename}.png"
         filepath = assets / filename
-        
+
         if filepath.exists() and filepath.stat().st_size > 100:
             print(f"  [跳过] {cname} ({ename}) 已存在")
+            name_map[ename] = cname
             success += 1
             continue
-        
+
         url = f"{ICON_CDN}/{icon_id}.png"
-        print(f"  下载中: {cname} ({ename})...", end=" ", flush=True)
-        
+        print(f"  下载: {cname} ({ename})...", end=" ", flush=True)
+
         try:
             req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=15) as resp:
@@ -69,14 +77,22 @@ def download():
                 if len(data) > 100:
                     filepath.write_bytes(data)
                     print("✓")
+                    name_map[ename] = cname
                     success += 1
                 else:
                     print("✗ (文件太小)")
         except Exception as e:
             print(f"✗ ({e})")
-    
+
+    # 保存名称映射文件
+    map_path = assets / "name_map.json"
+    with open(map_path, "w", encoding="utf-8") as f:
+        json.dump(name_map, f, ensure_ascii=False, indent=2)
+
     print(f"\n完成! 成功: {success}/{len(MANTRAS)}")
     print(f"图标目录: {assets.resolve()}")
+    print(f"名称映射: {map_path.resolve()}")
+
 
 if __name__ == "__main__":
     print("=" * 50)
